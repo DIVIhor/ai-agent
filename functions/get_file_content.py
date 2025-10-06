@@ -1,7 +1,10 @@
 import os
 
+from google.genai import types
+
 
 MAX_CHARS = 10000
+
 
 def get_file_content(working_directory, file_path):
     # output formatting
@@ -25,3 +28,21 @@ def get_file_content(working_directory, file_path):
         return file_contents
     except Exception as e:
         return f"{err_prefix} {e}"
+
+
+# Tell the LLM how to use the `get_file_content` function
+# we won't allow the LLM to specify the `working_directory` parameter
+schema_get_file_content = types.FunctionDeclaration(
+    name="get_file_content",
+    description="Reads contents of a file from the specified directory, constrained to the working directory. The contents are truncated after 10,000 characters, and a predefined message is appended.",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "file_path": types.Schema(
+                type=types.Type.STRING,
+                description="The path to the file from which to read contents, relative to the working directory.",
+            ),
+        },
+        required=["file_path"],
+    ),
+)
