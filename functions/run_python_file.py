@@ -34,7 +34,7 @@ def run_python_file(working_directory, file_path, args=[]):
         results = []
         if result.stdout:
             results.append(f"STDOUT: {result.stdout}")
-        if result.stdout:
+        if result.stderr:
             results.append(f"STDERR: {result.stderr}")
 
         if result.returncode != 0:
