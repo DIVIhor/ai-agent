@@ -5,10 +5,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-from functions.get_files_info import schema_get_files_info
-from functions.get_file_content import schema_get_file_content
-from functions.run_python_file import schema_run_python_file
-from functions.write_file import schema_write_file
+from functions.call_function import available_functions, call_function
 
 
 def main():
@@ -18,15 +15,6 @@ def main():
     client = genai.Client(api_key=api_key)
     # free tier model name
     model = "gemini-2.0-flash-001"
-
-    available_functions = types.Tool(
-        function_declarations=[
-            schema_get_files_info,
-            schema_get_file_content,
-            schema_run_python_file,
-            schema_write_file,
-        ]
-    )
 
     system_prompt = """
 You are a helpful AI coding agent.
@@ -46,6 +34,7 @@ All paths you provide should be relative to the working directory. You do not ne
         print("No prompt provided. Exiting...")
         exit(1)
     user_prompt = sys.argv[1]
+    is_verbose = "--verbose" in sys.argv
 
     # conversation history
     messages = [
@@ -61,18 +50,35 @@ All paths you provide should be relative to the working directory. You do not ne
         ),
     )
 
+    # show the output
+    if not resp.function_calls:
+        return resp.text
+
+    function_responses = []  # track responses
     # show called functions with their used arguments
     if resp.function_calls is not None:
-        for function_call in resp.function_calls:
-            print(
-                f"Calling function: {function_call.name}({function_call.args})"
+        for function_call_part in resp.function_calls:
+            function_call_result = call_function(
+                function_call_part, is_verbose
             )
-    # show the output
-    else:
-        print(resp.text)
+            if (
+                not function_call_result.parts
+                or not function_call_result.parts[0].function_response
+            ):
+                raise Exception(
+                    f"No function responses generated for: {function_call_part.name}({function_call_part.args})"
+                )
+            if is_verbose:
+                print(
+                    f"-> {function_call_result.parts[0].function_response.response}"
+                )
+            function_responses.append(function_call_result.parts[0])
+
+    if not function_responses:
+        raise Exception("no function responses generated, exiting.")
 
     # additional info
-    if "--verbose" in sys.argv:
+    if is_verbose:
         # show the user's prompt
         print("User prompt:", user_prompt)
         # show the number of prompt tokens
